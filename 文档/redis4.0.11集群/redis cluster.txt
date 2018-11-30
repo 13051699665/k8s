@@ -1,0 +1,59 @@
+port 16379
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+daemonize yes
+protected-mode no
+logfile /data/redis-cluster/redis-164-01/logs/redis_16379.log
+pidfile /data/redis-cluster/redis-164-01/run/redis_16379.pid
+dbfilename dump.rdb
+dir /data/redis-cluster/redis-164-01/data
+appendfilename "appendonly.aof"
+save 900 1
+save 300 10
+save 60 10000
+
+wget http://download.redis.io/releases/redis-4.0.11.tar.gz
+wget https://cache.ruby-lang.org/pub/ruby/2.4/ruby-2.4.5.tar.gz
+wget https://rubygems.org/rubygems/rubygems-2.7.8.tgz
+wget https://rubygems.org/downloads/redis-4.0.2.gem
+tar zxf redis-4.0.11.tar.gz
+tar zxf rubygems-2.7.7.tgz 
+tar zxf ruby-2.4.5.tar.gz
+mkdir -pv /data/redis-cluster/redis-164-01
+mkdir -pv /data/redis-cluster/redis-164-01/{data,logs,run,conf}
+cd redis-4.0.11
+make MALLOC=libc PREFIX=/data/redis-cluster/redis-164-01 install
+
+
+cd ../ruby-2.4.5
+mkdir /usr/local/ruby-2.4.5
+chown -R redis.redis /usr/local/ruby-2.4.5
+yum install gcc-c++ patch readline readline-devel zlib zlib-devel    libyaml-devel libffi-devel openssl-devel make    bzip2 autoconf automake libtool bison iconv-devel sqlite-devel
+./configure --prefix=/usr/local/ruby-2.4.5
+make&&make install
+ln -s /usr/local/ruby-2.4.5/bin/* /usr/bin/
+tar zxf rubygems-2.7.8.tgz
+cd rubygems-2.7.8
+ruby setup.rb
+cd ..
+gem install -l redis-4.0.2.gem
+
+/data/redis-cluster/redis-164-01/bin/redis-server /data/redis-cluster/redis-164-01/conf/redis.conf
+/data/redis-cluster/redis-164-02/bin/redis-server /data/redis-cluster/redis-164-02/conf/redis.conf
+/data/redis-cluster/redis-165-01/bin/redis-server /data/redis-cluster/redis-165-01/conf/redis.conf
+/data/redis-cluster/redis-165-02/bin/redis-server /data/redis-cluster/redis-165-02/conf/redis.conf
+/data/redis-cluster/redis-166-01/bin/redis-server /data/redis-cluster/redis-166-01/conf/redis.conf
+/data/redis-cluster/redis-166-02/bin/redis-server /data/redis-cluster/redis-166-02/conf/redis.conf
+
+firewall-cmd --zone=public --remove-port=63179/tcp --permanent
+firewall-cmd --zone=public --remove-port=63180/tcp --permanent
+firewall-cmd --zone=public --add-port=16380/tcp --permanent
+firewall-cmd --zone=public --add-port=16379/tcp --permanent
+firewall-cmd --zone=public --add-port=26380/tcp --permanent
+firewall-cmd --zone=public --add-port=26379/tcp --permanent
+firewall-cmd --reload
+firewall-cmd --zone=public --list-ports
+
+./redis-trib.rb create --replicas 1 172.17.112.164:16379 172.17.112.164:16380 172.17.112.165:16379 172.17.112.165:16380 172.17.112.166:16379 172.17.112.166:16380

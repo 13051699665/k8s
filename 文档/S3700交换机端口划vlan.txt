@@ -1,0 +1,24 @@
+您说的这种方式应该是指VLAN聚合，由于接口默认情况下是Hybrid口，而Hybrid口是不能以这种方式添加或删除VLAN的。
+错误提示信息应该是这样的：
+Error: Trunk or Hybrid port(s) can not be added or deleted in this manner.
+配置：
+[Quidway]port-group 1     ！！端口组名
+[Quidway-port-group-upto]group-member GigabitEthernet 0/0/1 to GigabitEthernet 0/0/10
+[Quidway-port-group-upto]port link-type acc
+[Quidway-port-group-upto]port default vlan 10
+[Quidway-port-group-upto]quit
+
+sys
+interface Vlanif 1
+ip address 192.168.2.2 255.255.255.0
+user-interface vty 0 4
+authentication-mode aaa
+aaa
+authentication-scheme default
+authorization-scheme default
+accounting-scheme default
+domain default
+domain default_admin
+local-user admin password cipher qiandaojt@2015
+local-user admin privilege level 15
+local-user admin service-type telnet

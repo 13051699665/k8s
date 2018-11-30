@@ -1,0 +1,3 @@
+snmp-agent
+snmp-agent community read cipher public@01
+snmp-agent sys-info version all

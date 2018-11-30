@@ -1,0 +1,82 @@
+tar zxf db-5.1.29.gz 
+tar zxf openldap-2.4.44.tgz 
+cd db-5.1.29
+yum -y install gcc c++
+cd build_unix/
+../dist/configure --prefix=/usr/local/BerkeleyDB
+make&&make install
+ldconfig -v
+echo "/usr/local/BerkeleyDB/lib/" >> /etc/ld.so.conf
+cp /usr/local/BerkeleyDB/include/* /usr/include/
+cp /usr/local/BerkeleyDB/lib/* /usr/lib/
+
+yum -y install libtool-ltdl libtool-ltdl-devel
+yum -y install openssl-*
+cd ../openldap-2.4.44
+env CPPFLAGS="-I/usr/local/BerkeleyDB/include" LDFLAGS="-L/usr/local/BerkeleyDB/lib"
+CPPFLAGS="-I /usr/local/BerkeleyDB/include -D_GNU_SOURCE" LDFLAGS="-L /usr/local/BerkeleyDB/lib" 
+./configure --prefix=/usr/local/openldap --sysconfdir=/etc --enable-lmpasswd --enable-spasswd --enable-bdb --enable-ldap --enable-modules --enable-relay --enable-accesslog --enable-auditlog --enable-syncprov --enable-overlays
+make depend
+make
+make test
+make install
+
+echo "/usr/local/openldap/lib" >> /etc/ld.so.conf
+mv DB_CONFIG.example DB_CONFIG
+ldconfig -v
+/usr/local/openldap/sbin/slappasswd -h {md5}
+vi /etc/openldap/slapd.conf
+include         /etc/openldap/schema/corba.schema
+include         /etc/openldap/schema/core.schema
+include         /etc/openldap/schema/cosine.schema
+include         /etc/openldap/schema/duaconf.schema
+include         /etc/openldap/schema/dyngroup.schema
+include         /etc/openldap/schema/inetorgperson.schema
+include         /etc/openldap/schema/java.schema
+include         /etc/openldap/schema/misc.schema
+include         /etc/openldap/schema/nis.schema
+include         /etc/openldap/schema/openldap.schema
+include         /etc/openldap/schema/ppolicy.schema
+include         /etc/openldap/schema/collective.schema
+.......
+index entryCSN,entryUUID                eq
+serverID        001
+syncrepl        rid=14
+        provider=ldap://192.168.16.19:389
+        type=refreshAndPersist
+        searchbase="dc=unifgroup,dc=com"
+        schemachecking=off
+        attrs="*"
+        scope=sub
+        bindmethod=simple
+        binddn="cn=Manager,dc=unifgroup,dc=com"
+        credentials="12345678"
+        retry="60 +"
+mirrormode      on
+overlay         syncprov
+database        monitor
+
+vi /etc/openldap/ldap.conf
+/usr/local/openldap/libexec/slapd -f /etc/openldap/slapd.conf 
+ps -elf|grep slapd
+/mnt/openldap/bin/ldapadd -x -D "cn=Admin,dc=unifgroup,dc=com" -W -f /root/base.ldif
+
+slapcat -b dc=unifgroup,dc=com -l unifgroup20171222.ldif
+
+cat >slapcat.regex <<EOF
+/^creatorsName: /d
+/^createTimestamp: /d
+/^modifiersName: /d
+/^modifyTimestamp: /d
+/^structuralObjectClass: /d
+/^entryUUID: /d
+/^entryCSN: /d
+EOF
+
+cat unifgroup20171222.ldif | sed -f slapcat.regex > slapdata20171222.ldif
+vi slapdata20171222.ldif 
+/usr/local/openldap/libexec/slapd -f /etc/openldap/slapd.conf
+/usr/local/openldap/bin/ldapadd -x -D "cn=Admin,dc=test,dc=com" -W -f slapdata20171222.ldif 
+
+
+/usr/local/openldap/bin/ldapsearch -x -b "ou=乾道集团,dc=unifgroup,dc=com"

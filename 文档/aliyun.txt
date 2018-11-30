@@ -1,0 +1,13 @@
+[base]
+baseurl=http://mirrors.aliyun.com/centos/6/os/x86_64/
+gpgcheck=1
+gpgkey=http://mirrors.aliyun.com/centos/6/os/x86_64/RPM-GPG-KEY-CentOS-6
+
+[epel]
+name=Extra Packages for Enterprise Linux 6 - $basearch
+baseurl=http://mirrors.aliyun.com/epel/6/$basearch
+        http://mirrors.aliyuncs.com/epel/6/$basearch
+failovermethod=priority
+enabled=1
+gpgcheck=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-6

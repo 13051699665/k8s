@@ -1,0 +1,130 @@
+ yum makecache
+ yum upgrade 
+cd /etc/sysconfig/network-scripts/
+ mv ifcfg-ens33 ifcfg-ens32
+ vi ifcfg-ens32 
+ systemctl restart network
+ ip a
+ chkconfig firewalld off
+ chkconfig --list|grep firewalld
+ systemctl list-unit-files|grep firewalld
+ systemctl stop firewalld
+
+ yum -y install openssl-devel zlib-devel expat-devel
+ yum -y install apr-devel gcc make
+
+ tar zxf apr-1.6.3.tar.gz 
+ tar zxf apr-util-1.6.1.tar.gz 
+ tar zxf apr-iconv-1.2.2.tar.gz 
+ cd apr-1.6.3
+ ./configure --prefix=/usr/local/apr
+ make&&make install
+ cd ../apr-iconv-1.2.2
+ ./configure --prefix=/usr/local/apr-iconv --with-apr=/usr/local/apr
+ make&&make install
+ cd ../apr-util-1.6.1
+ ./configure --prefix=/usr/local/apr-util --with-apr=/usr/local/apr --with-apr-iconv=/usr/local/apr-iconv/bin/apriconv
+ make&&make install
+
+ tar zxf scons-3.0.0.tar.gz 
+ cd scons-3.0.0
+ python setup.py install --prefix=/usr/local/scons
+ cd ..
+ unzip serf-1.3.9.zip 
+ cd serf-1.3.9
+ /usr/local/scons/bin/scons PREFIX=/usr/local/serf APR=/usr/local/apr APU=/usr/local/apr-util
+ vi SConstruct 
+   #if unknown:
+   # print 'Warning: Used unknown variables:', ', '.join(unknown.keys())
+ /usr/local/scons/bin/scons PREFIX=/usr/local/serf APR=/usr/local/apr APU=/usr/local/apr-util
+ /usr/local/scons/bin/scons install
+ cp -f /usr/local/serf/lib/libserf-1.so* /usr/local/lib/
+ ldconfig -v
+ echo "/usr/local/serf/lib/" >> /etc/ld.so.conf
+ cd ..
+ tar zxf subversion-1.10.0.tar.gz 
+ unzip sqlite-amalgamation-3160200.zip -d subversion-1.10.0/
+ cd subversion-1.10.0
+ mv sqlite-amalgamation-3160200/ sqlite-amalgamation
+ cd ..
+ yum -y install lz4-devel
+ yum -y install epel-release
+ yum -y install utf8proc utf8proc-devel
+ tar zxf httpd-2.4.33.tar.gz 
+ cd httpd-2.4.33
+ yum install -y pcre-devel lua-devel libxml2-devel
+ echo "/usr/local/apr-util/lib" >> /etc/ld.so.conf
+ echo "/usr/local/apr/lib" >> /etc/ld.so.conf
+ #make clean
+ #make realclean
+ cd srclib/
+ cp -rf /root/apr-util-1.6.1 apr-util
+ cp -rf /root/apr-1.6.3 apr
+ cd ..
+ yum install perl
+
+ ./configure --prefix=/usr/local/apache --enable-so --enable-ssl --enable-cgi --enable-rewrite --enable-proxy --enable-proxy-ajp=share --enable-dav --enable-dav-fs --with-apr=/usr/local/apr --with-apr-util=/usr/local/apr-util/  --enable-mods-shared=all --with-zlib --enable-deflate=shared --enable-proxy-fcgi --enable-modules=most --enable-mpms-shared=all --with-mpm=event --with-included-apr
+ make&&make install
+ echo "export PATH=/usr/local/apache/bin:$PATH" >> /etc/profile
+ source /etc/profile
+ #vi /usr/local/apache/bin/apxs
+ #  #!/usr/bin/perl -w        
+ cd ../subversion-1.10.0
+ ./configure --prefix=/usr/local/subversion --with-apr=/usr/local/apr/ --with-apr-util=/usr/local/apr-util/ --with-apxs=/usr/local/apache/bin/apxs --with-apache-libexecdir --with-serf=/usr/local/serf --with-zlib
+ make&&make install
+ echo "export PATH=/usr/local/subversion/bin:$PATH" >> /etc/profile
+ source /etc/profile
+ svn --version
+ ls /usr/local/apache/modules/|grep svn
+ vi /usr/local/apache/conf/httpd.conf
+     ......
+     LoadModule dav_svn_module modules/mod_dav_svn.so
+     LoadModule authz_svn_module modules/mod_authz_svn.so
+     Include conf/extra/httpd-svn.conf 
+ cd 
+ vi apache/conf/extra/httpd-svn.conf
+ <Location /svn>
+ DAV svn
+ #support more repositories
+ SVNParentPath /Repositories
+
+ #list all repositories
+ #SVNListParentPath on
+ AuthType Basic
+ AuthName "Please input Username and Password"
+ AuthUserFile /Repositories/conf/passwd
+ AuthzSVNAccessFile /Repositories/conf/authz
+ Require valid-user
+ </Location> 
+ mkdir /Repositories/
+ mkdir /Repositories/conf
+ mkdir /Repositories/code
+ mkdir /Repositories/doc
+ svnadmin create /Repositories/code
+ svnadmin create /Repositories/doc
+ cd /Repositories/
+ cp -f code/conf/* conf/
+ rm -f conf/hooks-env.tmpl 
+ groupadd svn
+ useradd -g svn svn
+ id svn
+ chown -R svn.svn /Repositories
+ vi conf/svnserve.conf
+     anon-access = none
+     auth-access = write
+     password-db = passwd
+     authz-db = authz
+     realm = /Repositories     
+ htpasswd -c conf/passwd chenqf
+ htpasswd  conf/passwd yurj
+ vi conf/authz
+ /usr/local/apache/bin/apachectl start
+ ps -elf|grep httpd
+ svnserve -d -r /Repositories
+ ps -elf|grep svnserve 
+ chmod -R 777 /Repositories
+ ll /Repositories/
+ vi /Repositories/conf/authz 
+
+
+ 

@@ -1,0 +1,1 @@
+mysqlslap --concurrency=50,100 --number-of-queries 1000 --debug-info --create-schema='student' --iterations=5 --engine=myisam,innodb --query='select * from student limit 20' -uroot -pxxxx > log.txt

@@ -1,0 +1,132 @@
+FTP文件传输服务
+vsftpd的常见配置项
+构建FTP访问服务
+一、FTP服务
+ 1、典型的C/S结构，要有服务端软件和客户端软件
+ 2、FTP连接及传输模式
+   1）FTP默认使用TCP的21.20端口与客户端通信
+        --->20端口用于建立数据连接，并传输相应的文件数据；
+        --->21端口用于建立控制连接，并传输相应的FTP命令；
+   2）不论主动模式还是被动模式，首先都是由客户端向服务器的21端口建立控制连接
+                    -->主动模式：需要传输数据时，客户端以“PORT”命令告知服务器自己打开了哪个端口（未知），服务器可以用20端口与自己连接，服务器就用自己的20端口向客户端的该端口（未知）发送请求并建立数据连接【服务器主动发起数据连接】
+                    -->被动模式：需要传输数据时，服务器以“PASV”命令告诉客户端自己打开了哪个端口（非20端口），可以来连接服务器，客户端就向服务器的该端口发送请求并建立数据连接
+注释：在数据传输的时会自动选择文件传输模式，文本模式或二进制模式（效率高）
+   3）FTP用户类型
+      ①匿名用户（使用任何形式密码，包括空密码），所有来访用户默认都映射成为ftp（在RHEL系统中有ftp系统账号对应）和anonymous两个用户身份【通常用于提供公共文件和免费软件，资料的下载等的用户使用】
+      ②本地用户，直接使用除匿名账户以外的本机系统用户账号做身份验证
+      ③虚拟用户，存在独立的用户账号数据库文件，降低了FTP用户与系统账号的关联性，提高了系统的安全性
+      ④FTP服务器软件种类
+                  ---->windows 系统中常用的IIS，Serv-U
+                  ---->Linux 系统中常用的proftpd,pureftpd,vsftpd
+      ⑤FTP客户端软件
+          Linux系统和windows系统都自带的ftp命令程序
+          windows系统中常用的CuteFTP,FlashFXP,LeapFTP,Filezilla
+          linux系统中常用的gftp,kuftp
+3、vsftpd的配置文件/etc/vsftpd/
+   1）用户列表配置文件ftpusers和user_list
+         ---->记录系统FTP用户的账号名称，用于ftp登录控制
+      ①ftpusers文件---该文件中列出的用户，不管是否在user_list列表中出现，都将被禁止登录ftp，默认包括了root，bin，daemon等特殊用户
+      ②user_list文件---此文件中的用户，需要在主配置文件中启用此文件方可生效，当在/etc/vsftpd/vsftpd.conf文件中配置了“userlist_enable=yes或userlist_deny=no”时表示此列表中的用户可以登录；当配置为"userlist_deny=yes"时，列表中的用户不能登录
+  2）主配置文件vsftpd.conf
+      该文件的配置行采用“配置项=参数”的配置格式，可通过“man vsftpd.conf”查看关于该文件的更多配置项，以下列出常用的配置项
+    ①常用的全局配置项
+      listen=YES/NO：是否以独立运行的方式监听服务
+      listen_address=192.168.4.1：设置监听的IP地址
+      listen_port=21：设置监听FTP服务的端口号
+      write_enable=YES/NO：是否启用写入权限{任何形式【匿名用户（虚拟用户），本地用户】}的写入（上传，删除，改名，移动等）权限都需要此项的支持】,相当于服务器的写入策略
+      download_enable＝YES/NO：是否允许下载文件
+      userlist_enable=YES/NO：是否启用user_list列表文件
+      userlist_deny=YES/NO：是否禁用user_list中的用户
+      max_clients=0：限制并发客户端连接数,0表示不做限制
+      max_per_ip=0：限制同一IP地址的并发连接数，0表示不做限制
+      connect_from_port_20=YES/NO:是否允许被动模式
+      pasv_enable=YES/NO:是否允许被动模式
+      pasv_max_port=24106:允许被动模式使用的最大的端口号
+      pasv_min_port=24006:允许被动模式使用的最小的端口号
+      pam_service_name=vsftpd:设置PAM用户认证文件（/etc/pam.d/认证文件名）的文件名
+    ②常用的匿名FTP配置项
+      anonymous_enable=YES：启用匿名访问
+      anon_umask=022：匿名用户所上传文件的权限掩码
+      anon_root=/var/ftp/：匿名用户的FTP根目录,/var/ftp/pub/子目录默认用于匿名用户上传文件到此
+      anon_upload_enable=YES/NO：是否允许上传文件
+      anon_mkdir_write_enable=YES/NO：是否允许创建目录
+      anon_other_write_enable=YES/NO：是否开放其他写入权（修改文件名，覆盖文件内容，删除文件名等）
+      anon_max_rate=0：限制最大传输速率（字节/秒）
+    ③常用的本地用户FTP配置项
+      local_enable=YES/NO：是否启用本地系统用户
+      local_umask=022：本地用户所上传文件的权限掩码
+      local_root=/var/ftp：设置本地用户的FTP根目录
+      chroot_local_user=YES/NO：是否将用户禁锢在宿主目录
+      local_max_rate=0：限制最大传输速率（字节/秒）
+二、构建基于系统用户的FTP服务
+    1、匿名访问FTP服务
+      RHEL系统中，匿名用户ftp所在的宿主目录即是FTP服务器的默认根目录，基于安全考虑，此目录的权限是500，属主是root。故，若要匿名用户有写入权限，只能更改根目录的权限
+     文件完全权限666；目录完全权限777
+     匿名用户默认的上传文件存放目录为/var/ftp/pub/
+     ①在匿名用户根目录下准备文件  tar -zcvf /var/ftp/nameserver.tar.gz /etc/resolv.conf 
+     ②开放匿名用户配置
+       [root@xufei ~]#vim /etc/vsftpd/vsftpd.conf
+                anonymous_enable=yes
+                anon_upload_enable=yes
+                write_enable=yes
+                ....
+     ③启动vsftpd服务     [root@xufei ~]#service vsftpd start
+                          [root@xufei ~]#netstat -anpt | grep “vsftpd”
+     ④客户端测试匿名FTP服务
+   2、用户验证的FTP服务
+     ①开放本地用户配置
+      [root@xufei ~]#vim /ctc/vsftpd/vsftpd.conf
+            local_enable=yes
+            write_enable=yes
+            local_umask=077
+            chroot_local_user=yes
+            local_root=/var/ftp/user
+            userlist_enable=yes
+            userlist_deny=no
+            .....
+     ②[root@xufei ~]#service vsftpd reload                        
+     ③[root@xufei ~]#vim /etc/vsftpd/user_list
+                    lisi
+                    wangwu
+                    zhangsan
+      [root@xufei ~]#useradd lisi
+      [root@xufei ~]#passwd lisi
+三、构建基于虚拟用户的FTP服务
+     1、建立虚拟用户账号数据库文件【需要由db4-utils软件提供的db_load工具支持】
+          [root@xufei ~]#vim /etc/vsftpd/vusers.list    ---创建文本格式的虚拟用户，密码对应列表
+                         lisi
+                         www.123
+                         wangwu
+                         123.com
+                         zhangsan
+                         123456
+          [root@xufei ~]#db_load -T -t hash -f /etc/vsftpd/vusers.list /etc/vsftpd/vusers.db  ---创建DB格式的数据库文件
+          [root@xufei ~]#chmod 600 /etc/vsftpd/vusers.*      ----设置账号文件的安全性
+          [root@xufei ~]#useradd -d /var/ftproot -s /sbin/nologin virtual   ---创建虚拟用户的映射系统用户（为所有虚拟用户提供根目录）
+          [root@xufei ~]#chmod 755 /var/ftproot/       ----为个目录设置写入权限
+          ]root@xufei ~]#vim /etc/rpm.d/vsftpd.vu      ----为虚拟用户建立RAM认证文件
+                auth     required       pam_username.so    db=/etc/vsftpd/vusers（DB数据库文件）
+                account  required       pam_username.so    db=/etc/vsftpd/vusers（DB数据库文件）
+          root@xufei ~]#vim /etc/vsftpd/vsftpd.conf    ----开放虚拟用户配置    
+                anonymous_enable=yes
+                write_enable=yes
+                guest_enable=yes
+                guest_username=virtual
+                pam_service_name=vsftpd.vu
+                anon_umask=022
+                user_config_dir=/etc/vsftpd/vusers.dir
+                ......
+         [root@xufei ~]#mkdir /etc/vsftpd/vusers.dir/   ----创建虚拟用户独立配置文件存放目录
+         [root@xufei ~]#vim /etc/vsftpd/vusers.dir/lisi
+                anon_upload_enable=yes
+                anon_mkdir_write_enable=yes
+         [root@xufei ~]#vim /etc/vsftpd/vusers.dir/wangwu
+                anon_other_write_enable=yes
+        
+         [root@xufei ~]#touch zhangsan                 -----只拥有主配置文件中的权限的用户，创建一个空配置文件，否则可能导致其他用户也无法登录
+                                                  
+     
+
+
+
+                   

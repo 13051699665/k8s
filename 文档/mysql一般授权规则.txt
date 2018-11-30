@@ -1,0 +1,21 @@
+mysql一般的授权规则：
+1、授权数据库root对所有数据库的完全控制
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'youpassword' WITH GRANT OPTION;
+2、授权root用户可本地登录
+grant all privileges on *.* to root@"localhost" identified by 'youpassword';
+grant all privileges on *.* to root@"127.0.0.1" identified by 'youpassword';
+3、可开启一个远程控制的对所有库有控制权限的用户
+grant all privileges on *.* to finance@"localhost" identified by 'youpassword';
+4、根据需要必须远程访问的库单个授权
+grant all privileges on juling.* to juling@"211.103.172.114" identified by 'youpassword';
+grant all privileges on juling.* to juling@"211.103.172.%" identified by 'youpassword';
+
+
+备份某张表
+mysqldump -uroot -p jydb.MF_NetValue > jydb.MF_NetValue.sql
+
+查询某张表的大小
+use information_schema;
+select concat(round(sum(DATA_LENGTH/1024/1024),2),'M'),concat(round(sum(INDEX_LENGTH/1024/1024),2),'M') from tables where table_schema='jydb' AND table_name='MF_NetValue';
+
+

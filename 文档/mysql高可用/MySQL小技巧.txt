@@ -1,0 +1,88 @@
+1)如果不慎忘记了MySQL的root密码或忘记授权本机登录，可以在启动MySQL服务器时加上参数--skip-grant-tables
+跳过授权表的验证 (./safe_mysqld或/usr/libexec/mysqld --skip-grant-tables &)，这样我们就可以直接登陆MySQL服务器，然后再修改root用户的口令
+use mysql;
+UPDATE user SET Password = PASSWORD('gfds@#$^9876POIU') WHERE user = 'root';
+FLUSH PRIVILEGES;
+重启MySQL就可以用新口令登陆了。
+
+2)启动MySQL服务器时加上--skip-show-database使一般数据库用户不能浏览其它数据库
+
+3)①启动MySQL服务器时加上--chroot=path参数，让mysql的守护进程运行在chroot环境中，这样SQL语句LOAD DATA INFILE和SELECT ... INTO OUTFILE就限定在chroot_path下读写文件了；
+   ②这里有一点要注意，MySQL启动后会建立一个mysql.sock文件，默认是在/tmp目录下，但使用了chroot后，MySQL会在chroot_path/tmp去建立mysql.sock文件，如果没有chroot_path/tmp目录或启动MySQL的用户没有这个目录写权限就不能建立mysql.sock文件，MySQL会启动失败；
+   ③如果加了--chroot=/usr/local/mysql/启动参数，那么最好建立一个启动MySQL的用户能写的/usr/local/mysql/tmp目录，当然我们也可以用--socket=path来指定mysql.sock文件的路径，但这个path一定要在chroot_path里面。
+
+4)mysql系统安全
+  ①如果我们只需本机使用MySQL服务，那么我们还可以加上--skip-networking启动参数使MySQL不监听任何TCP/IP连接，增加安全性（非常推荐）
+  ②删除mysql的匿名认证用户
+            mysql> drop user ''@'localhost';
+  ③每一个应用的库使用单独的授权用户，单独对其进行授权管理
+            mysql>create database jira;
+            mysql>use mysql;
+            mysql>create user jira@'localhost' identified by '9865321';
+            mysql>grant all privileges on jiradb.* to jira@'localhost';
+            mysql>flush privileges;
+5）数据库的扩容
+  ①架构扩容（仅依靠数据库的优化、微调已无法满足业务快速发展的需求）
+-------->主从关系（master----->slave）,master双机热备实现HA（写），slave负载均衡（读）
+-------->主主复制+读写分离+主键奇偶分离
+-------->主从复制+负载均衡
+   ②存储扩容
+-------->lvm快照扩容
+-------->在磁盘空间允许范围内库的自动增长
+6）数据库优化（查找症集----->是否解决------>服务器的i/o瓶颈）
+①状态检测，确定是否存在周期性波动或故障问题【一般由访问高峰或缓存崩溃引起】
+----->通过脚本，刷新观察mysql的status【一般需要长时间的观察】
+          #mysqladmin -uroot -p ext|awk '/Queries/{printf("%d ",$4)}/Threads_connected/{printf("%d ",$4)}/Threads_running/{printf("%d\n",$4)}'
+或
+         #mysqladmin -uroot -p ext|awk '/Queries/{a=$4}/Threads_connected/{b=$4}/Threads_running/{c=$4}END{printf("%d %d %d\n ",a,b,c)}'
+----->加memcached，更改缓存失效策略【3-9小时随机缓存（失效时间分散）或夜间定时失效】减少对数据库的频繁读取
+          #yum -y install memcached
+          #/usr/bin/memcached -u nobody -m 1024 -d(后台运行)
+②检测是否有不规则延迟或卡顿
+#show processlist或开启慢查询获取有问题的sql语句
+【启动MySQL服务器时加上--log-slow-queries[=file]参数，这样mysql的守护进程会把SQL命令执行时间超过long_query_time的写入file文件。如果没有指定=file，mysql默认会写到数据目录下的hostname-slow.log。如果只指定了filename，没有指定路径，那么mysql也会把filename写到数据目录下。通过这个日志文件可以找出执行时间超长的查询语句，然后尽可能的优化它减轻MySQL服务器的负担】
+----->profiling分析语句
+----->explain分析语句
+----->确定sql语句等待的io时长
+          a、表关联过多（确定为表设计缺陷）
+          b、索引未优化
+          c、语句未优化
+③调优服务器参数（缓冲区大小调整，线程数，连接数调整）【global或session】
+A、物理服务器
+磁盘I/O:RAID10磁盘阵列性能高于RAID5
+
+B、mysql系统的mysql.conf
+连接数调整： 
+方法①：
+ 进入MySQL安装目录 打开MySQL配置文件 my.ini 或 my.cnf查找 max_connections=100 修改为 max_connections=1000 服务里重起 MySQL即可
+ 方法②：
+ MySQL最大连接数默认是100客户端登录，客户端登录mysql
+ # mysql -uroot -ppassword 
+ 设置新的MySQL最大连接数为200
+ mysql> set GLOBAL max_connections=200； 
+ 显示当前运行的Query
+ mysql> show processlist； 
+ 显示MySQL当前的运作状态
+ mysql> show status；
+ mysql> show variables like '%connect%'; 
+ mysql> exit或quit
+ 查看当前MySQL最大连接数
+#mysqladmin -uroot -ppassword variables
+缓存区，线程数调整
+mysql> show global status like 'Thread%'; 
+        如果我们在MySQL服务器配置文件中设置了thread_cache_size，当客户端断开之后，服务器处理此客户的线程将会缓存起来以响应下一个客户而不是销毁(前提是缓存数未达上限)
+mysql> show variables like 'thread_cache_size';
+       Threads_created表示创建过的线程数，如果发现Threads_created值过大的话，表明MySQL服务器一直在创建线程，这也是比较耗资源；如果 Opened_tables 随着重新运行 show status命令快速增加，就说明应该尝试增大线程缓存了，可以适当增加配置文件中thread_cache_size值
+mysql> show status like 'open%tables';
+        如果 Opened_tables 随着重新运行 show status命令快速增加，就说明缓存命中率不够；如果 Open_tables 比 table_cache 设置小很多，就说明表缓存值太大了（不过要是空间足够，大一些总不是什么坏事）应该调整表的缓存如： table_cache = 5000 
+mysql> show status like '%key_read%';
+       关键字缓冲区保存了 MyISAM 表的索引块，理想情况下，对于这些块的请求应该来自于内存，而不是来自于磁盘
+       Key_reads 代表命中磁盘的请求个数， Key_read_requests 是总数；如果"Key_reads/Key_read_requests*1000"大于1，说明应该考虑增大关键字缓冲区如：key_buffer = 384M
+mysql> show status like 'created_tmp%';
+      在更高级的查询中，其中数据在进一步进行处理（例如 GROUP BY 字句）之前，都必须先保存到临时表中；理想情况下，在内存中创建临时表；但是如果临时表变得太大，就需要写入磁盘中；每次使用临时表都会增大 Created_tmp_tables；基于磁盘的表也会增大Created_tmp_disk_tables。对于这个比率，并没有什么严格的规则，但长时间观察 Created_tmp_disk_tables 会发现所创建的磁盘表的比率，也就可以相应的调整临时表的大小，tmp_table_size 和 max_heap_table_size 都可以控制临时表的最大大小
+mysql> show status like "com_select";
+     确定表扫描率： 运行了多少个 SELECT 语句，以及需要读取表中的下一行数据的次数（而不是通过索引直接访问
+④确定查询速度是否到达瓶颈
+------->到达瓶颈选择性使用加速器或架构性扩容
+------->未达到瓶颈按照优化流程重新检测
+7）库表散列机制

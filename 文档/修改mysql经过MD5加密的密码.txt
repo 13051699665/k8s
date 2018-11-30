@@ -1,0 +1,49 @@
+查看之后发现用户的密码放在这个表里；
+mysql> desc admin_user;
++-----------------+--------------+------+-----+-------------------+----------------+
+| Field           | Type         | Null | Key | Default           | Extra          |
++-----------------+--------------+------+-----+-------------------+----------------+
+| user_id         | int(11)      | NO   | PRI | NULL              | auto_increment |
+| username        | varchar(30)  | NO   |     | NULL              |                |
+| password        | varchar(100) | NO   |     | NULL              |                |
+| realname        | varchar(50)  | YES  |     | NULL              |                |
+| email           | varchar(100) | YES  |     | NULL              |                |
+| mobile          | varchar(50)  | YES  |     | NULL              |                |
+| login_count     | int(11)      | YES  |     | 0                 |                |
+| last_login_ip   | varchar(100) | YES  |     | NULL              |                |
+| last_login_time | datetime     | YES  |     | NULL              |                |
+| status          | tinyint(2)   | YES  |     | 1                 |                |
+| create_time     | timestamp    | YES  |     | CURRENT_TIMESTAMP |                |
++-----------------+--------------+------+-----+-------------------+----------------+
+
+mysql> select user_id,username,password from admin_user;
++---------+----------+----------------------------------+
+| user_id | username | password                         |
++---------+----------+----------------------------------+
+|       1 | admin    | 6f493fbddf9107797f5044bb229ac6ee |
+|       9 | monitor| f7a3efe5407c8ad36731d8c7c7cf36f2 |
++---------+----------+----------------------------------+
+2 rows in set (0.00 sec)
+
+猜想密码应该是MD5加密的：
+mysql> select md5('Lepusadmin');
++----------------------------------+
+| md5('Lepusadmin')                |
++----------------------------------+
+| 6f493fbddf9107797f5044bb229ac6ee |
++----------------------------------+
+1 row in set (0.04 sec)
+
+这下就好办了，生成一个其他密码的md5值，直接修改表数据：
+mysql> select md5('XXXXXXXXX');
++----------------------------------+
+| md5('XXXXXXXXXXX')               |
++----------------------------------+
+| 41ceaaf60687c5d3x08daf9a535da3b1 |
++----------------------------------+
+1 row in set (0.00 sec)
+
+
+mysql> update admin_user set password='41ceaaf60687c5d3x08daf9a535da3b1' where user_id = 1;
+Query OK, 1 row affected (0.11 sec)
+Rows matched: 1  Changed: 1  Warnings: 0

@@ -1,0 +1,26 @@
+1.  加载Web网页文件
+
+[HTTP-Server] http server load S5700SI-V200R003C00.001.web.7z
+2.  配置HTTPS/HTTP服务功能及HTTP用户
+
+# 配置HTTPS和HTTP服务功能。
+
+[HTTP-Server] http secure-server enable
+[HTTP-Server] http server enable
+# 配置HTTP用户。
+
+[HTTP-Server] aaa
+[HTTP-Server-aaa] local-user admin password irreversible-cipher Helloworld@6789
+[HTTP-Server-aaa] local-user admin privilege level 15
+[HTTP-Server-aaa] local-user admin service-type http
+[HTTP-Server-aaa] quit
+
+
+溯源
+
+<HUAWEI> system-view
+[HUAWEI] cpu-defend policy test
+[HUAWEI-cpu-defend-policy-test] auto-defend enable
+Quit
+[HUAWEI] cpu-defend-policy test global
+<HUAWEI> display auto-defend attack-source    查看攻击源

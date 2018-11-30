@@ -1,0 +1,22 @@
+#                                                                    
+ sysname USG
+#                                                                               
+acl number 2001                                                                 
+ rule 5 permit source 192.168.0.0 0.0.0.255                                   
+#                                                                               
+acl number 2002                                                                 
+ rule 5 permit source 10.1.1.10 0                                               
+#                                                                               
+interface GigabitEthernet0/0/1            
+ ip address 192.168.0.1 255.255.255.0                                        
+ qos car inbound acl 2001 cir 6000 cbs 6000 green pass red discard        
+#                                                                               
+interface GigabitEthernet0/0/2          
+ ip address 202.1.1.1 255.255.255.0                                        
+ qos gts any cir 10000 cbs 10000 queue-length 50
+#                                                                               
+interface GigabitEthernet0/0/3           
+ ip address 10.1.1.1 255.255.255.0                                        
+ qos car inbound acl 2002 cir 6000 cbs 6000 green pass red discard        
+#
+return
